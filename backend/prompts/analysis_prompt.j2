@@ -1,20 +1,7 @@
-Analyze this transcript and return ONLY raw JSON (no markdown blocks).
+Reply in ONE LINE JSON only. No explanation, no markdown.
 
-TRANSCRIPT:
-"""
-{{ transcript }}
-"""
+Text:
+{{ transcript[:1500] }}
 
-Required output fields:
-- evidence: array of {quote, sentiment (positive/negative/neutral), context}
-- rubric: {score (1-10), justification, confidence (high/medium/low)}
-- kpis: array of {kpi_name, relevance (direct/indirect/inferred), evidence_indices}
-- gaps: array of {dimension, importance (critical/important/nice_to_have), rationale}
-- follow_up_questions: array of {question, target_gap}
-
-Strict rules:
-- Every quote must exist verbatim in the transcript.
-- KPI names must be from the allowed list.
-- No markdown code fences. Return raw JSON only.
-- Score justification must cite evidence indices.
-- If no data for a field, use [] or null. Do not invent.
+JSON:
+{"score":7,"strengths":[""],"weaknesses":[""],"follow_up_questions":[""]}

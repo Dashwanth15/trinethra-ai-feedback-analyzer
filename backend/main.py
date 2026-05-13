@@ -1,7 +1,16 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
+
+# Configure logging so we see debug output in the terminal
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 app = FastAPI(
     title="Trinethra — Supervisor Feedback Analyzer",

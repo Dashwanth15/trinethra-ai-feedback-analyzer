@@ -24,12 +24,21 @@ async def health_check(client: OllamaClient = Depends(get_ollama_client)) -> dic
     return await client.health_check()
 
 
+@router.get("/health/ollama")
+async def health_ollama_detailed(client: OllamaClient = Depends(get_ollama_client)) -> dict:
+    """Detailed Ollama diagnostics."""
+    result = await client.health_check()
+    result["hint"] = (
+        "If reachable=False, run 'ollama serve' in a separate terminal. "
+        "If model_available=False, run 'ollama pull phi3:mini'."
+    )
+    return result
+
+
 @router.post("/retry", response_model=AnalyzeResponse)
 async def retry_analysis(
     request: AnalyzeRequest,
     analyzer: FeedbackAnalyzer = Depends(get_analyzer),
 ) -> AnalyzeResponse:
     """Re-analyze with stricter prompt settings."""
-    # The retry endpoint uses the same analyzer but could be extended
-    # to force higher temperature or stricter system prompt
     return await analyzer.analyze(request.transcript)
