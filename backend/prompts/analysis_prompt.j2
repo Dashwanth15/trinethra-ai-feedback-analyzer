@@ -1,7 +1,7 @@
-Reply in ONE LINE JSON only. No explanation, no markdown.
+Analyze this supervisor feedback transcript and return ONE LINE of valid JSON. No markdown.
 
-Text:
-{{ transcript[:1500] }}
+Transcript:
+{{ transcript[:1400] }}
 
-JSON:
-{"score":7,"strengths":[""],"weaknesses":[""],"follow_up_questions":[""]}
+Return EXACTLY this JSON (fill all fields, evidence must be SHORT phrases from the text):
+{"score":7,"summary":"one sentence","strengths":["s1","s2"],"weaknesses":["w1"],"evidence":["exact phrase from text"],"gaps":["missing topic"],"questions":["follow-up?"]}

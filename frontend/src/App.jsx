@@ -1,6 +1,11 @@
 import { useRef } from "react";
 import Layout from "./components/Layout";
 import TranscriptInput from "./components/TranscriptInput";
+import ScoreCard from "./components/ScoreCard";
+import SummaryCard from "./components/SummaryCard";
+import StrengthsWeaknessesCard from "./components/StrengthsWeaknessesCard";
+import EvidenceCard from "./components/EvidenceCard";
+import GapsCard from "./components/GapsCard";
 import FollowUpQuestions from "./components/FollowUpQuestions";
 import ErrorBanner from "./components/ErrorBanner";
 import LoadingSkeleton from "./components/LoadingSkeleton";
@@ -25,72 +30,56 @@ export default function App() {
   return (
     <Layout>
       <div className="max-w-3xl mx-auto">
+        {/* Input */}
         <TranscriptInput onAnalyze={handleAnalyze} loading={loading} />
 
+        {/* Loading */}
         {loading && <LoadingSkeleton />}
 
+        {/* Network / server error */}
         {error && <ErrorBanner message={error} />}
 
+        {/* Results */}
         {result && !loading && (
-          <div ref={resultsRef} className="mt-8 space-y-6">
+          <div ref={resultsRef} className="mt-8 space-y-5">
+
             {result.success && data ? (
               <>
-                {/* Score Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-5">
-                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                    Overall Score
-                  </h2>
-                  <div className="flex items-center gap-4">
-                    <span className="text-5xl font-bold text-indigo-600">
-                      {data.score}
-                    </span>
-                    <span className="text-gray-400 text-lg font-light">/ 10</span>
-                    <ScoreBar score={data.score} />
-                  </div>
+                {/* AI Disclaimer */}
+                <div className="flex items-center gap-2.5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-600">
+                  <span className="text-base">🤖</span>
+                  <span>
+                    <strong>AI-generated draft analysis.</strong> Human review recommended before
+                    sharing or acting on this output.
+                  </span>
                 </div>
 
-                {/* Strengths */}
-                {data.strengths?.length > 0 && (
-                  <div className="bg-white rounded-lg border border-gray-200 p-5">
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                      Strengths
-                    </h2>
-                    <ul className="space-y-2">
-                      {data.strengths.map((s, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-gray-800">
-                          <span className="mt-0.5 text-green-500 shrink-0">✓</span>
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {/* Score */}
+                <ScoreCard
+                  score={data.score}
+                  processingTimeMs={result.processing_time_ms}
+                />
 
-                {/* Weaknesses */}
-                {data.weaknesses?.length > 0 && (
-                  <div className="bg-white rounded-lg border border-gray-200 p-5">
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                      Areas for Improvement
-                    </h2>
-                    <ul className="space-y-2">
-                      {data.weaknesses.map((w, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-gray-800">
-                          <span className="mt-0.5 text-amber-500 shrink-0">⚠</span>
-                          {w}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {/* Summary */}
+                <SummaryCard summary={data.summary} />
+
+                {/* Strengths + Weaknesses side by side */}
+                <StrengthsWeaknessesCard
+                  strengths={data.strengths}
+                  weaknesses={data.weaknesses}
+                />
+
+                {/* Evidence */}
+                <EvidenceCard evidence={data.evidence} />
+
+                {/* Gaps */}
+                <GapsCard gaps={data.gaps} />
 
                 {/* Follow-up Questions */}
-                <FollowUpQuestions questions={data.follow_up_questions} />
-
-                <div className="text-xs text-gray-400 text-right">
-                  Processed in {result.processing_time_ms.toLocaleString()}ms
-                </div>
+                <FollowUpQuestions questions={data.questions} />
               </>
             ) : (
+              /* Analysis failed — show friendly error */
               <ErrorBanner
                 message={result.error_message || "Analysis could not be completed."}
               />
@@ -99,21 +88,5 @@ export default function App() {
         )}
       </div>
     </Layout>
-  );
-}
-
-/** Simple horizontal bar representing score/10 */
-function ScoreBar({ score }) {
-  const pct = (score / 10) * 100;
-  const color =
-    score >= 7 ? "bg-green-500" : score >= 4 ? "bg-amber-400" : "bg-red-500";
-
-  return (
-    <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-      <div
-        className={`h-full rounded-full transition-all duration-700 ${color}`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
   );
 }

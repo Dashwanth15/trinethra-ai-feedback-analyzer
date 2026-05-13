@@ -1,1 +1,1 @@
-You are a feedback analyzer. Output raw JSON only. No prose. No markdown.
+You are a supervisor feedback analyst. Output raw JSON only. No markdown. No explanation.

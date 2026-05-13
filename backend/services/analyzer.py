@@ -36,7 +36,6 @@ class FeedbackAnalyzer:
             logger.info(f"[RAW] {raw_output[:300]!r}")
 
             data = self._parse_and_validate(raw_output)
-
             processing_time = int((time.time() - start_time) * 1000)
             logger.info(f"[DONE] score={data.score} | time_ms={processing_time}")
 
@@ -66,25 +65,25 @@ class FeedbackAnalyzer:
             )
 
     def _parse_and_validate(self, raw: str) -> MvpOutput:
-        """Extract JSON from the LLM response and validate it into MvpOutput."""
+        """Extract JSON and coerce all 7 fields into MvpOutput."""
         parsed = _extract_json(raw)
 
-        # Coerce score to int in case model returns a float/string
-        if "score" in parsed:
-            try:
-                parsed["score"] = int(parsed["score"])
-            except (ValueError, TypeError):
-                parsed["score"] = 5
+        # --- score ---
+        try:
+            parsed["score"] = max(1, min(10, int(parsed.get("score", 5))))
+        except (ValueError, TypeError):
+            parsed["score"] = 5
 
-        # Ensure list fields are actually lists of strings
-        for field in ("strengths", "weaknesses", "follow_up_questions"):
-            if field not in parsed or not isinstance(parsed[field], list):
+        # --- summary ---
+        parsed["summary"] = str(parsed.get("summary", "")).strip()
+
+        # --- list-of-string fields ---
+        for field in ("strengths", "weaknesses", "evidence", "gaps", "questions"):
+            val = parsed.get(field)
+            if not isinstance(val, list):
                 parsed[field] = []
             else:
-                parsed[field] = [str(item) for item in parsed[field] if item]
-
-        # Clamp score to valid range
-        parsed["score"] = max(1, min(10, parsed["score"]))
+                parsed[field] = [str(item).strip() for item in val if item and str(item).strip()]
 
         try:
             return MvpOutput.model_validate(parsed)
