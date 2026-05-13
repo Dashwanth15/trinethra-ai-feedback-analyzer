@@ -5,7 +5,9 @@ import ScoreCard from "./components/ScoreCard";
 import SummaryCard from "./components/SummaryCard";
 import StrengthsWeaknessesCard from "./components/StrengthsWeaknessesCard";
 import EvidenceCard from "./components/EvidenceCard";
+import CoverageCard from "./components/CoverageCard";
 import GapsCard from "./components/GapsCard";
+import ReasoningCard from "./components/ReasoningCard";
 import FollowUpQuestions from "./components/FollowUpQuestions";
 import ErrorBanner from "./components/ErrorBanner";
 import LoadingSkeleton from "./components/LoadingSkeleton";
@@ -30,8 +32,11 @@ export default function App() {
   return (
     <Layout>
       <div className="max-w-3xl mx-auto">
-        {/* Input */}
-        <TranscriptInput onAnalyze={handleAnalyze} loading={loading} />
+
+        {/* Input panel */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
+          <TranscriptInput onAnalyze={handleAnalyze} loading={loading} />
+        </div>
 
         {/* Loading */}
         {loading && <LoadingSkeleton />}
@@ -41,45 +46,51 @@ export default function App() {
 
         {/* Results */}
         {result && !loading && (
-          <div ref={resultsRef} className="mt-8 space-y-5">
+          <div ref={resultsRef} className="space-y-4">
 
             {result.success && data ? (
               <>
-                {/* AI Disclaimer */}
-                <div className="flex items-center gap-2.5 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-600">
-                  <span className="text-base">🤖</span>
+                {/* AI Disclaimer banner */}
+                <div className="flex items-center gap-2.5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-600">
+                  <span className="text-base shrink-0">🤖</span>
                   <span>
-                    <strong>AI-generated draft analysis.</strong> Human review recommended before
-                    sharing or acting on this output.
+                    <strong>AI-generated draft analysis.</strong>{" "}
+                    Human review recommended before sharing or acting on this output.
                   </span>
                 </div>
 
-                {/* Score */}
+                {/* 1 — Score (with confidence) */}
                 <ScoreCard
                   score={data.score}
+                  confidence={data.confidence}
                   processingTimeMs={result.processing_time_ms}
                 />
 
-                {/* Summary */}
+                {/* 2 — Executive Summary */}
                 <SummaryCard summary={data.summary} />
 
-                {/* Strengths + Weaknesses side by side */}
+                {/* 3 — Reasoning Notes */}
+                <ReasoningCard reasoning={data.reasoning} />
+
+                {/* 4 — Assessment Coverage grid */}
+                <CoverageCard gaps={data.gaps} />
+
+                {/* 5 — Strengths + Improvement Areas */}
                 <StrengthsWeaknessesCard
                   strengths={data.strengths}
                   weaknesses={data.weaknesses}
                 />
 
-                {/* Evidence */}
+                {/* 6 — Evidence (verbatim citations) */}
                 <EvidenceCard evidence={data.evidence} />
 
-                {/* Gaps */}
+                {/* 7 — Missing evaluation areas */}
                 <GapsCard gaps={data.gaps} />
 
-                {/* Follow-up Questions */}
+                {/* 8 — Follow-up Questions */}
                 <FollowUpQuestions questions={data.questions} />
               </>
             ) : (
-              /* Analysis failed — show friendly error */
               <ErrorBanner
                 message={result.error_message || "Analysis could not be completed."}
               />

@@ -35,9 +35,9 @@ class FeedbackAnalyzer:
             raw_output = await self.client.generate(prompt=prompt, system=self.system_prompt)
             logger.info(f"[RAW] {raw_output[:300]!r}")
 
-            data = self._parse_and_validate(raw_output)
+            data = self._parse_and_validate(raw_output, transcript)
             processing_time = int((time.time() - start_time) * 1000)
-            logger.info(f"[DONE] score={data.score} | time_ms={processing_time}")
+            logger.info(f"[DONE] score={data.score} confidence={data.confidence} | time_ms={processing_time}")
 
             return AnalyzeResponse(
                 success=True,
@@ -64,18 +64,19 @@ class FeedbackAnalyzer:
                 processing_time_ms=processing_time,
             )
 
-    def _parse_and_validate(self, raw: str) -> MvpOutput:
-        """Extract JSON and coerce all 7 fields into MvpOutput."""
+    def _parse_and_validate(self, raw: str, transcript: str = "") -> MvpOutput:
+        """Extract JSON, coerce all 9 fields, compute confidence deterministically."""
         parsed = _extract_json(raw)
 
-        # --- score ---
+        # --- score (int, clamped 1–10) ---
         try:
             parsed["score"] = max(1, min(10, int(parsed.get("score", 5))))
         except (ValueError, TypeError):
             parsed["score"] = 5
 
-        # --- summary ---
+        # --- string fields ---
         parsed["summary"] = str(parsed.get("summary", "")).strip()
+        parsed["reasoning"] = str(parsed.get("reasoning", "")).strip()
 
         # --- list-of-string fields ---
         for field in ("strengths", "weaknesses", "evidence", "gaps", "questions"):
@@ -85,10 +86,27 @@ class FeedbackAnalyzer:
             else:
                 parsed[field] = [str(item).strip() for item in val if item and str(item).strip()]
 
+        # --- confidence: computed deterministically (no LLM hallucination risk) ---
+        parsed["confidence"] = self._compute_confidence(transcript, parsed.get("evidence", []))
+
         try:
             return MvpOutput.model_validate(parsed)
         except Exception as exc:
             raise JSONParseError(f"Schema validation failed: {exc}")
+
+    @staticmethod
+    def _compute_confidence(transcript: str, evidence: list) -> str:
+        """
+        Derive confidence from transcript length and evidence density.
+        This is computed deterministically — not left to the LLM.
+        """
+        t_len = len(transcript)
+        e_count = len(evidence)
+        if t_len >= 600 and e_count >= 2:
+            return "High"
+        elif t_len >= 200:
+            return "Moderate"
+        return "Low"
 
     @staticmethod
     def _friendly_error(exc: Exception) -> str:
@@ -117,8 +135,7 @@ def _extract_json(raw: str) -> dict:
     end = text.rfind("}")
     if start != -1 and end != -1 and end > start:
         candidate = text[start: end + 1]
-        # Remove trailing commas (common LLM mistake)
-        candidate = re.sub(r",\s*([\]}])", r"\1", candidate)
+        candidate = re.sub(r",\s*([\]}])", r"\1", candidate)  # remove trailing commas
         try:
             return json.loads(candidate)
         except json.JSONDecodeError as exc:

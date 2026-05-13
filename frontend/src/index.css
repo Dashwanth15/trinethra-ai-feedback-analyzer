@@ -1,7 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-  @apply bg-gray-50 text-gray-800;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  @apply bg-slate-50 text-gray-900 antialiased;
+}
+
+/* Smooth score bar animation */
+.score-bar {
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }

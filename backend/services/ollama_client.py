@@ -30,7 +30,7 @@ class OllamaClient:
             "stream": False,
             # Low-RAM / low-CPU options: cap output tokens and use low temperature
             "options": {
-                "num_predict": 250,
+                "num_predict": 300,
                 "temperature": 0.3,
             },
         }

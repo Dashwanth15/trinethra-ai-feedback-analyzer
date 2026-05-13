@@ -1,7 +1,7 @@
-Analyze this supervisor feedback transcript and return ONE LINE of valid JSON. No markdown.
+Analyze this supervisor feedback. Reply with ONE LINE of valid JSON only. No markdown. Use professional executive language throughout.
 
 Transcript:
 {{ transcript[:1400] }}
 
-Return EXACTLY this JSON (fill all fields, evidence must be SHORT phrases from the text):
-{"score":7,"summary":"one sentence","strengths":["s1","s2"],"weaknesses":["w1"],"evidence":["exact phrase from text"],"gaps":["missing topic"],"questions":["follow-up?"]}
+Output exactly this JSON (evidence = VERBATIM exact phrases copied from the transcript, questions must reference detected weaknesses or gaps):
+{"score":7,"summary":"Professional executive-style one sentence.","strengths":["Clear professional observation"],"weaknesses":["Professional improvement area"],"evidence":["exact verbatim phrase from transcript"],"gaps":["Unaddressed evaluation dimension"],"questions":["Interview-quality question referencing a weakness or gap?"],"reasoning":"One sentence explaining why this score was given."}
