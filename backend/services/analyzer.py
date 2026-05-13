@@ -22,7 +22,6 @@ class FeedbackAnalyzer:
             autoescape=False,
         )
         self.system_prompt = self._load_system_prompt()
-        self.schema_json = AiOutputSchema.model_json_schema()
 
     def _load_system_prompt(self) -> str:
         path = PROMPTS_DIR / "system_prompt.txt"
@@ -99,7 +98,6 @@ class FeedbackAnalyzer:
             template = self.env.get_template("retry_prompt.j2")
             prompt = template.render(
                 transcript=transcript,
-                schema_json=self.schema_json,
                 previous_error=previous_error,
                 previous_raw_output=previous_raw_output,
             )
@@ -107,7 +105,6 @@ class FeedbackAnalyzer:
             template = self.env.get_template("analysis_prompt.j2")
             prompt = template.render(
                 transcript=transcript,
-                schema_json=self.schema_json,
             )
 
         return await self.client.generate(prompt=prompt, system=self.system_prompt)

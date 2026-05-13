@@ -1,24 +1,20 @@
-Analyze the following supervisor feedback transcript.
+Analyze this transcript and return ONLY raw JSON (no markdown blocks).
 
 TRANSCRIPT:
 """
 {{ transcript }}
 """
 
-STRICT INSTRUCTIONS:
-1. Extract exact quotes as evidence. Tag each as positive, negative, or neutral.
-2. Suggest a rubric score (1-10) with justification grounded in the evidence.
-3. Map the feedback to relevant business KPIs from standard HR dimensions.
-4. Identify gaps: assessment dimensions NOT mentioned by the supervisor.
-5. Suggest 3-5 follow-up questions to uncover missing information.
+Required output fields:
+- evidence: array of {quote, sentiment (positive/negative/neutral), context}
+- rubric: {score (1-10), justification, confidence (high/medium/low)}
+- kpis: array of {kpi_name, relevance (direct/indirect/inferred), evidence_indices}
+- gaps: array of {dimension, importance (critical/important/nice_to_have), rationale}
+- follow_up_questions: array of {question, target_gap}
 
-OUTPUT FORMAT:
-Return ONLY a JSON object matching this schema exactly:
-{{ schema_json }}
-
-ANTI-HALLUCINATION RULES:
-- Every quote must be a verbatim substring of the transcript.
-- Do not fabricate KPIs outside standard HR dimensions (Employee Engagement, Performance, Retention, Communication, Leadership, Development, Well-being, Collaboration).
-- If a section has no relevant data, return an empty array or null, do not invent content.
-- Score justification must reference specific evidence indices.
-- Do not include markdown code blocks (no ```json). Return raw JSON only.
+Strict rules:
+- Every quote must exist verbatim in the transcript.
+- KPI names must be from the allowed list.
+- No markdown code fences. Return raw JSON only.
+- Score justification must cite evidence indices.
+- If no data for a field, use [] or null. Do not invent.

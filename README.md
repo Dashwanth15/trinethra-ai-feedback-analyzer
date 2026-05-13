@@ -6,12 +6,12 @@ An AI-powered supervisor feedback analysis tool built for psychology interns. Pa
 
 - **Frontend**: React 18, Vite, Tailwind CSS
 - **Backend**: Python, FastAPI, Pydantic
-- **AI**: Ollama (llama3.2:3b) running locally
+- **AI**: Ollama (phi3:mini) running locally
 
 ## Prerequisites
 
 - [Ollama](https://ollama.com/) installed and running locally
-- `llama3.2:3b` model pulled: `ollama pull llama3.2:3b`
+- `phi3:mini` model pulled: `ollama pull phi3:mini`
 - Python 3.10+
 - Node.js 18+
 

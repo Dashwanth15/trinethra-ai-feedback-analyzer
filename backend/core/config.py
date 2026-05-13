@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     OLLAMA_URL: str = "http://localhost:11434"
-    MODEL: str = "llama3.2:3b"
+    MODEL: str = "phi3:mini"
     MAX_RETRIES: int = 3
     REQUEST_TIMEOUT: int = 60
     LOG_LEVEL: str = "INFO"
