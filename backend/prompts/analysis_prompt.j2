@@ -1,0 +1,24 @@
+Analyze the following supervisor feedback transcript.
+
+TRANSCRIPT:
+"""
+{{ transcript }}
+"""
+
+STRICT INSTRUCTIONS:
+1. Extract exact quotes as evidence. Tag each as positive, negative, or neutral.
+2. Suggest a rubric score (1-10) with justification grounded in the evidence.
+3. Map the feedback to relevant business KPIs from standard HR dimensions.
+4. Identify gaps: assessment dimensions NOT mentioned by the supervisor.
+5. Suggest 3-5 follow-up questions to uncover missing information.
+
+OUTPUT FORMAT:
+Return ONLY a JSON object matching this schema exactly:
+{{ schema_json }}
+
+ANTI-HALLUCINATION RULES:
+- Every quote must be a verbatim substring of the transcript.
+- Do not fabricate KPIs outside standard HR dimensions (Employee Engagement, Performance, Retention, Communication, Leadership, Development, Well-being, Collaboration).
+- If a section has no relevant data, return an empty array or null, do not invent content.
+- Score justification must reference specific evidence indices.
+- Do not include markdown code blocks (no ```json). Return raw JSON only.

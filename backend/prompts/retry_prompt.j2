@@ -1,0 +1,16 @@
+Your previous response failed validation: {{ previous_error }}
+
+Previous raw output:
+{{ previous_raw_output }}
+
+You MUST fix the JSON syntax errors and remove any fabricated content.
+Double-check that every evidence quote exists verbatim in the transcript.
+
+Return ONLY a valid JSON object matching this schema exactly:
+{{ schema_json }}
+
+STRICTER RULES:
+- NO markdown code blocks. NO prose before or after JSON.
+- Every quote must be a VERBATIM substring of the transcript.
+- Allowed KPIs only: Employee Engagement, Performance, Retention, Communication, Leadership, Development, Well-being, Collaboration.
+- If uncertain, use lower confidence and shorter arrays rather than inventing data.
