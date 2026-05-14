@@ -1,7 +1,22 @@
-Analyze this supervisor feedback. Reply with ONE LINE of valid JSON only. No markdown. Use professional executive language throughout.
+Analyze this transcript and return ONLY raw JSON (no markdown blocks).
 
-Transcript:
-{{ transcript[:1400] }}
+TRANSCRIPT:
+"""
+{{ transcript }}
+"""
 
-Output exactly this JSON (evidence = VERBATIM exact phrases copied from the transcript, questions must reference detected weaknesses or gaps):
-{"score":7,"summary":"Professional executive-style one sentence.","strengths":["Clear professional observation"],"weaknesses":["Professional improvement area"],"evidence":["exact verbatim phrase from transcript"],"gaps":["Unaddressed evaluation dimension"],"questions":["Interview-quality question referencing a weakness or gap?"],"reasoning":"One sentence explaining why this score was given."}
+Return JSON with these exact fields:
+- score: integer 1-10
+- summary: one-sentence executive summary
+- strengths: array of positive observations
+- weaknesses: array of improvement areas
+- evidence: array of verbatim quotes from transcript
+- gaps: array of missing assessment dimensions
+- questions: array of 3-5 follow-up questions
+- reasoning: paragraph explaining the score
+- confidence: "High", "Moderate", or "Low"
+
+Rules:
+- Every quote in evidence must exist verbatim in the transcript.
+- No markdown code fences. Return raw JSON only.
+- If no data for a field, use [] or "". Do not invent.

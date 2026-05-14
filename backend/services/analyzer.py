@@ -1,18 +1,17 @@
-import json
-import logging
-import re
 import time
 from pathlib import Path
 
 import jinja2
 
-from core.exceptions import JSONParseError, LLMError
+from core.config import settings
+from core.exceptions import HallucinationError, JSONParseError, LLMError, ValidationError
 from schemas.ai_output import MvpOutput
 from schemas.response import AnalyzeResponse
+from services.guardrails import run_all_guardrails
 from services.ollama_client import OllamaClient
+from utils.json_parser import extract_json
 
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
-logger = logging.getLogger(__name__)
 
 
 class FeedbackAnalyzer:
@@ -22,123 +21,119 @@ class FeedbackAnalyzer:
             loader=jinja2.FileSystemLoader(str(PROMPTS_DIR)),
             autoescape=False,
         )
-        self.system_prompt = (PROMPTS_DIR / "system_prompt.txt").read_text(encoding="utf-8")
+        self.system_prompt = self._load_system_prompt()
+
+    def _load_system_prompt(self) -> str:
+        path = PROMPTS_DIR / "system_prompt.txt"
+        return path.read_text(encoding="utf-8")
 
     async def analyze(self, transcript: str) -> AnalyzeResponse:
         start_time = time.time()
-        logger.info(f"[ANALYZE] transcript_len={len(transcript)}")
+        retry_count = 0
+        last_error = ""
+        last_raw = ""
 
-        try:
-            template = self.env.get_template("analysis_prompt.j2")
-            prompt = template.render(transcript=transcript)
+        while retry_count <= settings.MAX_RETRIES:
+            try:
+                raw_output = await self._call_llm(
+                    transcript=transcript,
+                    previous_error=last_error,
+                    previous_raw_output=last_raw,
+                    is_retry=retry_count > 0,
+                )
+                last_raw = raw_output
 
-            raw_output = await self.client.generate(prompt=prompt, system=self.system_prompt)
-            logger.info(f"[RAW] {raw_output[:300]!r}")
+                parsed = extract_json(raw_output)
+                data = MvpOutput.model_validate(parsed)
 
-            data = self._parse_and_validate(raw_output, transcript)
-            processing_time = int((time.time() - start_time) * 1000)
-            logger.info(f"[DONE] score={data.score} confidence={data.confidence} | time_ms={processing_time}")
+                passed, issues = run_all_guardrails(transcript, data)
+                if not passed:
+                    raise HallucinationError("; ".join(issues))
 
-            return AnalyzeResponse(
-                success=True,
-                data=data,
-                processing_time_ms=processing_time,
-            )
+                processing_time = int((time.time() - start_time) * 1000)
+                confidence = self._compute_confidence(retry_count, passed=True)
 
-        except (JSONParseError, LLMError) as exc:
-            processing_time = int((time.time() - start_time) * 1000)
-            logger.error(f"[FAIL] {type(exc).__name__}: {exc}")
-            return AnalyzeResponse(
-                success=False,
-                error_type=type(exc).__name__,
-                error_message=self._friendly_error(exc),
-                processing_time_ms=processing_time,
-            )
-        except Exception as exc:
-            processing_time = int((time.time() - start_time) * 1000)
-            logger.error(f"[FAIL] unexpected: {exc}")
-            return AnalyzeResponse(
-                success=False,
-                error_type="unknown",
-                error_message="An unexpected error occurred. Please try again.",
-                processing_time_ms=processing_time,
-            )
+                return AnalyzeResponse(
+                    success=True,
+                    data=data,
+                    confidence_label=confidence,
+                    retry_count=retry_count,
+                    processing_time_ms=processing_time,
+                )
 
-    def _parse_and_validate(self, raw: str, transcript: str = "") -> MvpOutput:
-        """Extract JSON, coerce all 9 fields, compute confidence deterministically."""
-        parsed = _extract_json(raw)
+            except (JSONParseError, ValidationError, HallucinationError, LLMError) as exc:
+                last_error = str(exc)
+                retry_count += 1
+                if retry_count > settings.MAX_RETRIES:
+                    processing_time = int((time.time() - start_time) * 1000)
+                    error_type = self._classify_error(exc)
+                    return AnalyzeResponse(
+                        success=False,
+                        error_type=error_type,
+                        error_message=self._friendly_error(error_type, last_error),
+                        confidence_label="low",
+                        retry_count=retry_count - 1,
+                        processing_time_ms=processing_time,
+                    )
+                # Loop continues to retry
 
-        # --- score (int, clamped 1–10) ---
-        try:
-            parsed["score"] = max(1, min(10, int(parsed.get("score", 5))))
-        except (ValueError, TypeError):
-            parsed["score"] = 5
-
-        # --- string fields ---
-        parsed["summary"] = str(parsed.get("summary", "")).strip()
-        parsed["reasoning"] = str(parsed.get("reasoning", "")).strip()
-
-        # --- list-of-string fields ---
-        for field in ("strengths", "weaknesses", "evidence", "gaps", "questions"):
-            val = parsed.get(field)
-            if not isinstance(val, list):
-                parsed[field] = []
-            else:
-                parsed[field] = [str(item).strip() for item in val if item and str(item).strip()]
-
-        # --- confidence: computed deterministically (no LLM hallucination risk) ---
-        parsed["confidence"] = self._compute_confidence(transcript, parsed.get("evidence", []))
-
-        try:
-            return MvpOutput.model_validate(parsed)
-        except Exception as exc:
-            raise JSONParseError(f"Schema validation failed: {exc}")
-
-    @staticmethod
-    def _compute_confidence(transcript: str, evidence: list) -> str:
-        """
-        Derive confidence from transcript length and evidence density.
-        This is computed deterministically — not left to the LLM.
-        """
-        t_len = len(transcript)
-        e_count = len(evidence)
-        if t_len >= 600 and e_count >= 2:
-            return "High"
-        elif t_len >= 200:
-            return "Moderate"
-        return "Low"
-
-    @staticmethod
-    def _friendly_error(exc: Exception) -> str:
-        if isinstance(exc, LLMError):
-            return str(exc)
-        return (
-            "The AI response could not be parsed. "
-            "Try a shorter or clearer transcript and retry."
+        # Should never reach here, but satisfy type checker
+        return AnalyzeResponse(
+            success=False,
+            error_type="unknown",
+            error_message="An unexpected error occurred",
+            confidence_label="low",
+            retry_count=retry_count,
+            processing_time_ms=int((time.time() - start_time) * 1000),
         )
 
+    async def _call_llm(
+        self,
+        transcript: str,
+        previous_error: str,
+        previous_raw_output: str,
+        is_retry: bool,
+    ) -> str:
+        if is_retry:
+            template = self.env.get_template("retry_prompt.j2")
+            prompt = template.render(
+                transcript=transcript,
+                previous_error=previous_error,
+                previous_raw_output=previous_raw_output,
+            )
+        else:
+            template = self.env.get_template("analysis_prompt.j2")
+            prompt = template.render(
+                transcript=transcript,
+            )
 
-def _extract_json(raw: str) -> dict:
-    """Fast, lightweight JSON extraction from raw LLM text."""
-    if not raw or not raw.strip():
-        raise JSONParseError("Empty response from model.")
+        return await self.client.generate(prompt=prompt, system=self.system_prompt)
 
-    text = raw.strip()
+    @staticmethod
+    def _compute_confidence(retry_count: int, passed: bool) -> str:
+        if retry_count == 0 and passed:
+            return "high"
+        if retry_count <= 1:
+            return "medium"
+        return "low"
 
-    # Strip markdown fences if present
-    fence = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
-    if fence:
-        text = fence.group(1).strip()
+    @staticmethod
+    def _classify_error(exc: Exception) -> str:
+        name = type(exc).__name__
+        mapping = {
+            "JSONParseError": "parse_error",
+            "ValidationError": "validation_error",
+            "HallucinationError": "hallucination_detected",
+            "LLMError": "llm_error",
+        }
+        return mapping.get(name, "unknown")
 
-    # Find first { ... last }
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        candidate = text[start: end + 1]
-        candidate = re.sub(r",\s*([\]}])", r"\1", candidate)  # remove trailing commas
-        try:
-            return json.loads(candidate)
-        except json.JSONDecodeError as exc:
-            raise JSONParseError(f"JSON decode error: {exc} | raw={candidate[:200]}")
-
-    raise JSONParseError(f"No JSON object found in model output: {text[:200]}")
+    @staticmethod
+    def _friendly_error(error_type: str, detail: str) -> str:
+        messages = {
+            "parse_error": "The AI response could not be parsed. Try rephrasing your transcript.",
+            "validation_error": "The AI response was malformed. Try again with clearer input.",
+            "hallucination_detected": "The AI invented information not in your transcript. Please review and retry.",
+            "llm_error": "Could not reach the AI model. Make sure Ollama is running.",
+        }
+        return messages.get(error_type, f"Analysis failed: {detail}")
