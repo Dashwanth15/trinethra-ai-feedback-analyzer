@@ -373,40 +373,10 @@ App available at `http://localhost:5173`. The Vite dev proxy routes `/api` reque
 
 ---
 
-## Screenshots
-
-> _Add screenshots here after deployment._
-
-**Transcript Input**
-```
-[screenshot: transcript-input.png]
-```
-
-**Analysis Dashboard — Score & Summary**
-```
-[screenshot: dashboard-score.png]
-```
-
-**Evidence Panel — Verbatim Quote Verification**
-```
-[screenshot: evidence-panel.png]
-```
-
-**Gap Analysis — Coverage Overview**
-```
-[screenshot: gap-analysis.png]
-```
-
-**Confidence Badge & KPI Tags**
-```
-[screenshot: confidence-kpi.png]
-```
-
----
 
 ## Demo Video
 
-> _Link to walkthrough video here._
+>[ _Link to walkthrough video here._](https://drive.google.com/file/d/1F0XHhjk_6VIFDI9TBDuSwI0XnGWaryTS/view?usp=sharing)
 
 ```
 [Demo video: trinethra-demo.mp4 or YouTube link]
