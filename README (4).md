@@ -21,34 +21,50 @@ The system does not replace human reviewers. It surfaces evidence, identifies co
 
 ## Problem Statement
 
-Supervisor feedback in clinical and psychology training programs is typically delivered verbally or in loosely structured written form. Analyzing these transcripts at scale — across interns, sessions, and evaluation dimensions — is time-consuming and error-prone for program coordinators.
+Supervisor feedback in psychology and training programs is often unstructured, conversational, and difficult to analyze consistently at scale. Trinethra was built to transform raw feedback transcripts into structured, explainable insights while keeping human reviewers in control.
 
-The core challenges are:
+### Key Challenges
 
-**Transcript ambiguity.** Supervisors use informal, conversational language that does not map cleanly onto structured rubric dimensions. Extracting meaningful signal from this requires more than keyword matching.
+- **Unstructured feedback**  
+  Supervisors often provide feedback in natural conversational language, making it difficult to map insights directly to evaluation criteria.
 
-**Hallucination risk.** Language models are prone to generating plausible-sounding but ungrounded claims — a serious problem in professional evaluation contexts where fabricated evidence can mislead reviewers or misrepresent an intern's performance.
+- **Hallucination risk in AI systems**  
+  Language models can generate unsupported conclusions or fabricated evidence, which can affect evaluation reliability.
 
-**Explainability requirements.** Assessments used in training programs must be defensible. A score without a traceable reasoning chain is not useful; neither is an evidence claim that cannot be located in the source material.
+- **Need for explainability**  
+  Reviewers should understand *why* a score or observation was generated, not just see the final result.
 
-**Evaluation coverage.** A single supervisor session rarely covers all relevant competency dimensions. The system needs to identify what was assessed and, critically, what was not — so reviewers know where the transcript is incomplete rather than assuming it is comprehensive.
+- **Incomplete evaluation coverage**  
+  Many transcripts discuss only a few competency areas, making it important to identify what was *not* assessed.
 
-Trinethra was built to address these constraints directly, with design decisions at every layer of the stack chosen to minimize hallucination, maximize traceability, and keep the human reviewer in control.
+- **Human review remains important**  
+  AI should assist reviewers with structured analysis, not replace professional judgment.
+
+Trinethra addresses these challenges using:
+- evidence-backed analysis
+- structured JSON outputs
+- confidence-aware review workflows
+- lightweight hallucination guardrails
+- local AI inference with Ollama
 
 ---
 
 ## System Philosophy
 
-**AI-assisted, not AI-replacing.** Trinethra generates structured analysis; it does not make decisions. Every output is presented as a reviewable artifact, not a final assessment. Confidence indicators and gap flags are designed to prompt human judgment, not substitute for it.
+- **AI-assisted, not AI-replacing**  
+  The system helps reviewers with structured analysis while keeping human judgment at the center.
 
-**Evidence before inference.** All claims surfaced in the analysis must be traceable to verbatim quotes from the source transcript. The guardrail layer verifies this automatically and rejects evidence items that cannot be located in the original text.
+- **Evidence before inference**  
+  All observations must be supported by direct transcript evidence.
 
-**Deterministic where possible.** Confidence scoring is computed programmatically from transcript length and evidence density — not delegated to the LLM. This eliminates an entire class of hallucination and ensures that confidence values are consistent and reproducible across runs.
+- **Deterministic where possible**  
+  Confidence scoring and validation are handled programmatically to reduce hallucination risk.
 
-**Structured outputs by design.** The system prompt instructs the model to return raw JSON only, with no markdown or explanation. A Pydantic schema defines the exact shape of the expected output. Responses that do not conform to the schema are rejected and retried with escalating strictness — never silently accepted.
+- **Structured outputs by design**  
+  The model is forced to return strict JSON outputs validated using Pydantic schemas.
 
-**Local inference as a constraint, not a compromise.** Running on-device via Ollama means no data leaves the machine, no API keys are needed, and the system works in offline or restricted network environments. Prompts are written to work within the context and reasoning limits of phi3:mini, which requires deliberate simplification.
-
+- **Local inference focused**  
+  Runs entirely on-device using Ollama + phi3:mini for privacy, offline access, and reproducible behavior.
 ---
 
 ## Key Features
@@ -114,46 +130,63 @@ Trinethra was built to address these constraints directly, with design decisions
                     React Dashboard
 ```
 
-**Frontend.** Built with React 18, Vite, and Tailwind CSS. The `useAnalyze` hook manages request state and error boundaries. Vite's dev proxy routes `/api` requests to the FastAPI backend during development. Output is decomposed into purpose-specific display components — each card renders one aspect of the analysis independently, making it easy to inspect or extend individual output types.
+- **Frontend**  
+  Built using React, Vite, and Tailwind CSS with modular dashboard components for displaying structured analysis results.
 
-**Backend.** FastAPI with Pydantic v2 for request/response modeling. The `FeedbackAnalyzer` service orchestrates the full pipeline: prompt rendering, LLM call, JSON extraction, schema validation, and guardrail checks. All Ollama communication is handled via `httpx.AsyncClient` for non-blocking I/O.
+- **Backend**  
+  FastAPI + Pydantic handle transcript processing, prompt generation, JSON validation, and guardrail checks.
 
-**Prompt assembly.** System and analysis prompts are maintained as separate Jinja2 templates. The Pydantic JSON schema is injected directly into the analysis prompt, giving the model explicit field-level instructions. This reduces the likelihood of field omission or type mismatches in the output.
+- **Prompt Engineering**  
+  Lightweight structured prompts guide the model to return clean JSON-based outputs with minimal hallucination.
 
-**JSON extraction.** A lightweight parser handles the reality of local LLM output: markdown fences are stripped, the first valid `{...}` block is extracted, and trailing commas are repaired before `json.loads` is attempted. No external libraries required.
-
+- **JSON Parsing**  
+  A custom parser extracts and repairs JSON responses from local LLM outputs before validation.
+  
 ---
 
 ## Hallucination Guardrails
 
-Controlling LLM output quality is the central engineering concern of this project. The following mechanisms work in combination to reduce hallucination and ensure reviewers are working with grounded, trustworthy data.
+To improve reliability and reduce hallucination risk, the system includes multiple lightweight validation layers:
 
-**Verbatim evidence verification.** After parsing, every evidence quote is checked for exact substring presence in the original transcript. Quotes that cannot be located are flagged as guardrail failures. This prevents the model from inventing supporting quotations — a common failure mode in extractive summarization tasks.
+- **Evidence verification**  
+  Evidence quotes are checked against the original transcript to ensure they actually exist in the source text.
 
-**JSON-only system prompt.** The system prompt instructs the model to output raw JSON with no markdown, preamble, or explanation. This is the first line of defense: removing the model's opportunity to generate free-form text reduces the surface area for hallucinated content.
+- **Strict JSON outputs**  
+  The model is instructed to return only structured JSON responses for consistent parsing and validation.
 
-**Schema-enforced structure.** The Pydantic `MvpOutput` model defines types, constraints, and defaults for all nine output fields. Responses that fail schema validation — missing required fields, wrong types, out-of-range scores — are rejected rather than passed through with partial data.
+- **Schema validation**  
+  All AI responses are validated using Pydantic before reaching the frontend.
 
-**KPI allowlist.** Extracted KPIs are validated against a fixed controlled vocabulary of eight allowed terms. This prevents the model from introducing novel or unrecognized categories that would be meaningless to reviewers.
+- **Controlled KPI mapping**  
+  KPI tags are restricted to predefined categories to avoid unsupported labels.
 
-**Deterministic confidence scoring.** Confidence (`High`, `Moderate`, `Low`) is computed entirely in Python from transcript length and evidence count — not generated by the model. This eliminates one of the most common LLM reliability failures: overconfident assessments on thin evidence.
+- **Confidence-aware review**  
+  Confidence levels are computed programmatically based on transcript coverage and evidence density.
 
-**Retry with escalating strictness.** On parse or validation failure, the system retries up to three times using the `retry_prompt.j2` template, which includes more explicit instructions about output format. Retry attempts are logged for observability.
+- **Retry handling**  
+  Invalid or malformed responses trigger stricter retry prompts automatically.
 
 ---
 
 ## Engineering Tradeoffs
 
-**phi3:mini on low-RAM hardware.** The model was selected for its minimal memory footprint and ability to run on consumer hardware without GPU acceleration. This constrains reasoning depth and context capacity. Prompts are written to be as short and explicit as possible, and the output schema was kept flat (no nested objects) to reduce the chance of structural errors in the model's JSON generation.
+- **Optimized for low-RAM systems**  
+  The project uses `phi3:mini` to enable lightweight local inference on consumer laptops without requiring GPU acceleration or cloud APIs.
 
-**Flat schema over rich nesting.** An earlier schema design used nested objects for evidence items (with `quote`, `dimension`, and `relevance` fields). Under phi3:mini, nested structures produced significantly more malformed JSON. The final schema uses flat string arrays throughout, with the guardrail layer handling post-hoc validation rather than relying on the model to maintain complex structure.
+- **Simplified output schema**  
+  Flat JSON structures were preferred over deeply nested objects because smaller local models produced more reliable and valid outputs with simpler response formats.
 
-**Synchronous retry over streaming.** Streaming responses would improve perceived latency but complicate JSON validation — partial JSON cannot be validated mid-stream. Given that the primary use case involves short transcripts on low-RAM hardware where total inference time is already bounded, synchronous request/response was preferred for reliability.
+- **Short and deterministic prompts**  
+  Prompts were intentionally kept concise and structured to reduce hallucination risk, improve inference stability, and maintain faster response times.
 
-**No caching layer.** The current implementation does not cache identical transcript analyses. For the target use case (ad hoc review, short sessions), this was not a bottleneck. A lightweight cache keyed on transcript hash would be a straightforward addition for repeated analysis workflows.
+- **Reliability over streaming**  
+  A standard request-response workflow was used instead of streaming to simplify JSON validation, retry handling, and frontend consistency.
 
-**Evidence as strings, not structured objects.** The model reliably extracts verbatim phrases when the expected output is a flat list of strings. Asking for structured evidence objects (with separate fields for quote, context, and dimension mapping) increased parse failures significantly under phi3:mini and was removed from the schema.
+- **Local-first architecture**  
+  The system was designed to run entirely on-device using Ollama for better privacy, offline access, reproducibility, and easier experimentation.
 
+- **Lightweight MVP-focused design**  
+  The architecture prioritizes stability, explainability, and maintainability over unnecessary complexity, making it suitable for rapid prototyping and operational review workflows.
 ---
 
 ## Assessment Coverage Logic
