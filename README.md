@@ -342,6 +342,7 @@ trinethra/
 - `phi3:mini` model pulled: `ollama pull phi3:mini`
 - Python 3.10+
 - Node.js 18+
+- in Terminal one RUN : " ollama run phi3:mini "
 
 ### Backend
 
